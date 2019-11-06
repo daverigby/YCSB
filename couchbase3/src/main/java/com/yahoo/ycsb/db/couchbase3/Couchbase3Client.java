@@ -62,9 +62,9 @@ public class Couchbase3Client extends DB {
 
   private static final Object INIT_COORDINATOR = new Object();
 
-  private static volatile Cluster cluster;
-  private static volatile ClusterOptions clusterOptions;
-  private static volatile Collection collection;
+  private Cluster cluster;
+  private ClusterOptions clusterOptions;
+  private Collection collection;
   private volatile DurabilityLevel durabilityLevel;
   private volatile PersistTo persistTo;
   private volatile ReplicateTo replicateTo;
@@ -74,6 +74,9 @@ public class Couchbase3Client extends DB {
   @Override
   public void init() throws DBException {
     Properties props = getProperties();
+    String hostname = props.getProperty("couchbase.host", "127.0.0.1");
+    String username = props.getProperty("couchbase.username", "Administrator");
+    String password = props.getProperty("couchbase.password", "password");
     String bucketName = props.getProperty("couchbase.bucket", "ycsb");
     // durability options
     String rawDurabilityLevel = props.getProperty("couchbase.durability", null);
@@ -88,9 +91,6 @@ public class Couchbase3Client extends DB {
 
     synchronized (INIT_COORDINATOR) {
       if (environment == null) {
-        String hostname = props.getProperty("couchbase.host", "127.0.0.1");
-        String username = props.getProperty("couchbase.username", "Administrator");
-        String password = props.getProperty("couchbase.password", "password");
         boolean enableMutationToken = Boolean.parseBoolean(props.getProperty("couchbase.enableMutationToken", "false"));
 
         long kvTimeoutMillis = Integer.parseInt(props.getProperty("couchbase.kvTimeoutMillis", "60000"));
@@ -101,15 +101,16 @@ public class Couchbase3Client extends DB {
             .ioConfig(IoConfig.mutationTokensEnabled(enableMutationToken))
             .serviceConfig(ServiceConfig.keyValueServiceConfig(KeyValueServiceConfig.builder().endpoints(kvEndpoints)))
             .build();
-
-        clusterOptions = ClusterOptions.clusterOptions(username, password);
-        clusterOptions.environment(environment);
-        cluster = Cluster.connect(hostname, clusterOptions);
-        Bucket bucket = cluster.bucket(bucketName);
-        collection = bucket.defaultCollection();
-
       }
     }
+
+    clusterOptions = ClusterOptions.clusterOptions(username, password);
+    clusterOptions.environment(environment);
+    cluster = Cluster.connect(hostname, clusterOptions);
+
+    Bucket bucket = cluster.bucket(bucketName);
+    collection = bucket.defaultCollection();
+
     OPEN_CLIENTS.incrementAndGet();
   }
 
